@@ -1,0 +1,5 @@
+﻿  life.cpp
+C:\Users\Josef\Workspace\Life\life.cpp(82): warning C4267: "Initialisierung": Konvertierung von "size_t" nach "int", Datenverlust möglich
+C:\Users\Josef\Workspace\Life\life.cpp(83): warning C4267: "Initialisierung": Konvertierung von "size_t" nach "int", Datenverlust möglich
+C:\Users\Josef\Workspace\Life\life.cpp(414): warning C4244: "Argument": Konvertierung von "time_t" in "unsigned int", möglicher Datenverlust
+  opencvtest.vcxproj -> C:\Users\Josef\Workspace\Life\build\Release\opencvtest.exe

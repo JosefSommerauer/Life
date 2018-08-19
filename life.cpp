@@ -12,9 +12,12 @@
 
 #include <iostream>
 #include <vector>
+#include <opencv2/imgcodecs.hpp>
 
 using namespace cv;
 using namespace std;
+
+
 
 //Copies one array to another.
 void copy(uint8_t * array1, uint8_t * array2)
@@ -51,6 +54,16 @@ void life_multi(uint8_t * & array, uint8_t * & temp, char choice) {
 	size_t numOfWorker_y = 10;
 	size_t sizePerWorker_x = width/numOfWorker_x;
 	size_t sizePerWorker_y = height/numOfWorker_y;
+
+	//bool survival_rule[] = { 0,0,1,0,0,0,0,0,0 };
+	//bool creation_rule[] = { 0,0,0,1,0,0,0,0,0 };
+
+	//bool survival_rule[9] = { 0,0,0,0,1,1,1,1,1 };
+	//bool creation_rule[9] = { 0,0,0,1,0,0,0,0,0 };
+
+	bool survival_rule[] = { 0,0,1,0,0,0,0,0,0 };
+	bool creation_rule[] = { 0,0,0,1,0,0,1,0,0 };
+
 	//copy(array, temp);
 	
 	//blub = array;
@@ -81,14 +94,34 @@ void life_multi(uint8_t * & array, uint8_t * & temp, char choice) {
 
 						int idx2D = (conworld((j), height) * (width)) + conworld((i),(width));
 						
-						if(count < 2  || count > 3) temp[idx2D] = 0;
+						
+						//if(count < 2  || count > 3) temp[idx2D] = 0;
 						//else 
 						//if(count == 2) temp[idx2D] = array[idx2D];
 						//else if(count ==3) temp[idx2D] = array[idx2D] + 1;
 						//else temp[idx2D] = 0;
-						 						 // The cell dies.
-						if(count == 2 || array[idx2D] == 0xFF) {temp[idx2D] = array[idx2D];} // The cell stays the same.
-						if(count == 3) {temp[idx2D] = array[idx2D]+1;} 		// The cell either stays alive, or is "born".
+						 						 
+						// The cell stays the same.
+						if(survival_rule[count] || array[idx2D] == 0xFF) {
+							temp[idx2D] = array[idx2D];
+						} else if(creation_rule[count]) {
+							// The cell either stays alive, or is "born".
+							temp[idx2D] = array[idx2D]+1;
+						} else {
+							temp[idx2D] = 0; // The cell dies.
+
+						}
+						
+						/*
+						if (creation_rule[count] == 1) {
+							temp[idx2D] = (array[idx2D] == 0xFF) ? 0xFF : ++array[idx2D];
+						} else if (survival_rule[count] == 1) {
+							temp[idx2D] = array[idx2D];
+						} else {
+							// die :-X
+							temp[idx2D] = 0;
+						}
+						*/
 												
 					} 
 				}
@@ -96,11 +129,14 @@ void life_multi(uint8_t * & array, uint8_t * & temp, char choice) {
 		}
 	}
 
+
+
+	for (auto& th : mWorker) th.join();
+
 	uint8_t * blub = temp;
 	temp = array;
 	array = blub;
 
-	for (auto& th : mWorker) th.join();
 	//copy(temp, array);
 }
 
@@ -108,6 +144,11 @@ void life(uint8_t * array, uint8_t * temp, char choice)
 {
   //Copies the main array to a temp array so changes can be entered into a grid
   //without effecting the other cells and the calculations being performed on them.
+	//bool survival_rule[9] = { 0,0,1,1,0,0,0,0,0 };
+	//bool creation_rule[9] = { 0,0,0,1,0,0,0,0,0 };
+
+	bool survival_rule[9] = { 0,0,0,0,1,1,1,1,1 };
+	bool creation_rule[9] = { 0,0,0,1,0,0,0,0,0 };
 
   copy(array, temp);
 	for(int j = 0; j < height; j++) {
@@ -139,25 +180,14 @@ void life(uint8_t * array, uint8_t * temp, char choice)
 			
 
 			int idx2D = (conworld((j), height) * (width)) + conworld((i),(width));
-			// The cell dies.
-			
-			if(count < 2 || count > 3) {
+			if (survival_rule[count]) {
+				temp[idx2D] = array[idx2D];
+			} else if (creation_rule[count]) {
+				temp[idx2D] = array[idx2D] != 0xFF ? array[idx2D]++ : 0xFF;			
+			} else {
+				// die :-X
 				temp[idx2D] = 0;
 			}
-
-			// The cell stays the same.
-			if(count == 2 || array[idx2D] == 0xFF) {
-				temp[idx2D] = array[idx2D];
-			}
-
-			// The cell either stays alive, or is "born".
-			if(count == 3) {
-				temp[idx2D] = array[idx2D]+1;//array[j][i] + 1;					
-			}
-
-			//temp[idx2D] *= 32;
-			//cout << (int)temp[idx2D] << " ";
-
 		}
 
 
@@ -291,33 +321,67 @@ string type2str(int type) {
 
 void SeedImage(std::string filename, uint8_t * game, bool overwrite) {
 	Mat image;
-    image = imread(filename, CV_LOAD_IMAGE_GRAYSCALE);   // Read the file
+    image = imread(filename, cv::ImreadModes::IMREAD_GRAYSCALE);   // Read the file
     string ty =  type2str( image.type() );
 	printf("Matrix: %s %dx%d \n", ty.c_str(), image.cols, image.rows );
 
-
+	int start_x = (width / 2) - (image.cols / 2);
+	int start_y = (height / 2) - (image.rows / 2);
 
     for (int i = 0; i < image.rows; ++i)
     {
     	for (int j = 0; j < image.cols; ++j)
     	{
 			if(image.at<uint8_t>(i, j) != 0x00) {					
-				game[((i+500)*width)+j] = 1;
+				game[((i+ start_y)*width)+j+start_x] = 1;
 			} else {
-				if(!overwrite) game[((i+500)*width)+j] = 0;
+				if(!overwrite) game[((i+ start_y)*width)+j+start_x] = 0;
 			}
     	}
     }
 }
 
-void Seed(uint8_t * game, bool overwrite, bool drawpanets, int dist) {
+
+void SeedImage(std::string filename, Mat &mask , bool overwrite) {
+	Mat image;
+	image = imread(filename, cv::ImreadModes::IMREAD_GRAYSCALE);   // Read the file
+	string ty = type2str(image.type());
+	//printf("Matrix: %s %dx%d \n", ty.c_str(), image.cols, image.rows);
+
+	int start_x = (width / 2) - (image.cols / 2);
+	int start_y = (height / 2) - (image.rows / 2);
+
+	for (int i = 0; i < image.rows; ++i)
+	{
+		for (int j = 0; j < image.cols; ++j)
+		{
+			if (image.at<uint8_t>(i, j) != 0x00) {
+				//game[((i + start_y)*width) + j + start_x] = 1;
+				mask.at<uint8_t>(i+start_y, j+start_x) = 0xFF;
+			} else {
+				if (!overwrite)
+					mask.at<uint8_t>(i+start_y, j+start_x) = 0;;
+				//mask.at<uint8_t>(j + start_x, i + start_y) = 0;
+			}
+		}
+	}
+}
+
+void Seed(uint8_t * game, bool overwrite, bool drawpanets, bool drawimage, bool drawcross, int dist) {
 	Mat mask(height, width, CV_8U, cv::Scalar(0));
-	if(drawpanets) {
-		circle(mask, Point(width/2,height/2),        100, 255, CV_FILLED, 8,0);
-		circle(mask, Point(width/2-300,height/2+100),100, 255, CV_FILLED, 8,0);
-		circle(mask, Point(width/2+150,height/2-200), 30, 255, CV_FILLED, 8,0);
-		circle(mask, Point(width/2+300,height/2+100), 20, 255, CV_FILLED, 8,0);
-	} else {
+	if (drawpanets) {
+		circle(mask, Point(width / 2, height / 2), 100, 255, FILLED, 8, 0);
+		circle(mask, Point(width / 2 - 300, height / 2 + 100), 100, 255, FILLED, 8, 0);
+		circle(mask, Point(width / 2 + 150, height / 2 - 200), 30, 255, FILLED, 8, 0);
+		circle(mask, Point(width / 2 + 300, height / 2 + 100), 20, 255, FILLED, 8, 0);
+	}
+	
+	if (drawimage) {
+		//SeedImage("../../img/ship.png", game, overwrite);
+		SeedImage("../../img/ship.png", mask, overwrite);
+	}
+	
+	if (drawcross) {
 		int offset_x = (width/2) - (height/2);
 		// diagonal lines
 		

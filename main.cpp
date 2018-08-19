@@ -27,13 +27,35 @@
 #include <stdint.h>
 
 #include <thread>
+#include <windows.h>
+//#include <X11/Xlib.h>
 
-#include <X11/Xlib.h>
+
 
 #include "life.h"
 
 using namespace cv;
 using namespace std;
+
+#if defined(__WIN32__) || defined(_WIN32) || defined(WIN32) || defined(__WINDOWS__) || defined(__TOS_WIN__)
+
+
+
+inline void delay(unsigned long ms)
+{
+	Sleep(ms);
+}
+
+#else  /* presume POSIX */
+
+#include <unistd.h>
+
+inline void delay(unsigned long ms)
+{
+	usleep(ms * 1000);
+}
+
+#endif
 
 
 int main() {
@@ -44,7 +66,7 @@ int main() {
 	char neighborhood;
 	char again;
 	char cont = 'y';
-	bool comparison;
+	bool comparison = false;
 	string decoration;
 
    //Instructions on how the program is used, along with the rules of the game.
@@ -63,7 +85,7 @@ int main() {
 
   //namedWindow( "game", CV_WINDOW_AUTOSIZE); // | WINDOW_FREERATIO );
   namedWindow( "game", WINDOW_NORMAL  ); // Create a window for display.	
-  setWindowProperty("game", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+  setWindowProperty("game", WND_PROP_FULLSCREEN, WINDOW_FULLSCREEN);
   
   neighborhood = 'm';
   static int zoom = 1;
@@ -76,6 +98,8 @@ int main() {
   int dist = 2;
   bool overwrite = false;
   bool drawpanets = false; //true;
+  bool drawimage = false;
+  bool drawcross = true;
   double time = 0;
   double time_print = 0;
   double time_life_start = 0;
@@ -83,91 +107,28 @@ int main() {
   TickMeter tmPrint;
   Mat game_zoom, game_resize;
   bool isValid = false;
-
-  std::thread mGUI([&]() {
-  	while(!exit) {
-  		if(isValid) imshow( "game", game_resize);  
-  		char k = waitKey(1) & 0xFF; // Wait for a keystroke in the window
-			
-			switch(k) {
-				case 'r': 	
-					resetWorld = true;
-					break;
-				case 'm': 	
-					resetWorld = true;
-					neighborhood = 'm';
-					break;
-				case 'v': 	
-					resetWorld = true;
-					neighborhood = 'v';
-					break;
-				case 'q':
-					destroyAllWindows(); 
-					resetWorld = true;	
-					exit = true;
-				case '1':
-					dist--;
-					if(dist == 0) dist = 1; 
-					resetWorld = true;	
-					break;
-				case '2':
-					dist++;
-					resetWorld = true;	
-					break;
-				case '4': 
-					zoom++;
-					break;
-				case '3':
-					zoom--; zoom = (zoom<1)?1:zoom;
-					break;
-				case 'o':
-					overwrite = true;
-					resetWorld = true;
-					break;
-				case 'x':
-					drawpanets = false;
-					break;
-				case 'p':
-					drawpanets = true;
-					break;
-
-				// zoom navigate
-				case 'd':
-					offset_x -= 10;
-					break;
-				case 'a':
-					offset_x += 10;
-					break;
-				case 'w':
-					offset_y += 10;
-					break;
-				case 's':
-					offset_y -= 10;
-					break;
-			}
-		}
-
-  });
-
-	
-	/* windows
-	int x = GetSystemMetrics(SM_CXSCREEN);
-	int y = GetSystemMetrics(SM_CYSCREEN);
-	*/
-	
+  char k = 0;
 
 
-	Display* disp = XOpenDisplay(NULL);
-	Screen*  scrn = DefaultScreenOfDisplay(disp);
-	int scrheight = scrn->height;
-	int scrwidth  = scrn->width;
-	
-  	Size size(scrwidth,scrheight);//the dst image size,e.g.100x100
+  /* windows
+  int x = GetSystemMetrics(SM_CXSCREEN);
+  int y = GetSystemMetrics(SM_CYSCREEN);
+  */
 
+
+
+  //Display* disp = XOpenDisplay(NULL);
+  //Screen*  scrn = DefaultScreenOfDisplay(disp);
+  int scrheight = 1200; // scrn->height;
+  int scrwidth = 1920; // scrn->width;
+
+  Size size(scrwidth, scrheight);//the dst image size,e.g.100x100
+
+ std::thread mGUI([&]() {
 	do {	
 
-		Seed(game, overwrite, drawpanets, dist);
-		//SeedImage("../img/ship.png", game, overwrite);
+		Seed(game, overwrite, drawpanets, drawimage, drawcross, dist);
+		
 		overwrite = false;
 		resetWorld = false;
 		int i = 0; // generation
@@ -192,13 +153,19 @@ int main() {
 			
 			double frame_rate = ((double) getTickCount() - time) / getTickFrequency();
 			std::stringstream ss; ss.precision(3);
-			ss  << "gen: " << i
-			    << " FPS: " << 1/frame_rate 
-				<< " print: " << tmPrint.getTimeMilli() << " ms"
-				<< " life: " << tmLife.getTimeMilli() << " ms";
+			ss << "gen: " << i
+				<< " FPS: " <<   fixed << 1 / frame_rate
+				<< " print: " << fixed << tmPrint.getTimeMilli() << " ms"
+				<< " life: " <<  fixed << tmLife.getTimeMilli() << " ms "
+				<< (drawpanets ? 'p' : ' ')
+				<< (drawimage  ? 'i' : ' ')
+				<< (drawcross  ? 'x' : ' ');
+
 			cv::Point pos(50,65); 
-			
+
+						
 			cv::putText(game_resize, ss.str(), pos, FONT_HERSHEY_PLAIN, 1.2, Scalar(128, 255, 255));
+			//cv::putText(game_zoom, ss.str(), pos, FONT_HERSHEY_PLAIN, 1.2, Scalar(128, 255, 255));
 			
 			tmLife.reset(); 
 			tmLife.start();	
@@ -209,8 +176,78 @@ int main() {
 
 			// static world
 			//comparison = compare(game, backup);
+
+			//delay(10);
+			//waitKey(1);
+
 			}while(comparison == false && !resetWorld);
 		}while(!exit);
+		});
+
+ while (!exit) {
+	 if (isValid) imshow("game", game_resize);//game_resize);  
+	 k = waitKey(10) & 0xFF; // Wait for a keystroke in the window
+
+	 switch (k) {
+	 case 'r':
+		 resetWorld = true;
+		 break;
+	 case 'm':
+		 resetWorld = true;
+		 neighborhood = 'm';
+		 break;
+	 case 'v':
+		 resetWorld = true;
+		 neighborhood = 'v';
+		 break;
+	 case 'q':
+		 destroyAllWindows();
+		 resetWorld = true;
+		 exit = true;
+	 case '1':
+		 dist--;
+		 if (dist == 0) dist = 1;
+		 resetWorld = true;
+		 break;
+	 case '2':
+		 dist++;
+		 resetWorld = true;
+		 break;
+	 case '4':
+		 zoom++;
+		 break;
+	 case '3':
+		 zoom--; zoom = (zoom<1) ? 1 : zoom;
+		 break;
+	 case 'o':
+		 overwrite = true;
+		 resetWorld = true;
+		 break;
+	 case 'x':
+		 drawcross = !drawcross;
+		 break;
+	 case 'p':
+		 drawpanets = !drawpanets;
+		 break;
+	 case 'i':
+		 drawimage = !drawimage;
+		 break;
+
+		 // zoom navigate
+	 case 'd':
+		 offset_x -= 10;
+		 break;
+	 case 'a':
+		 offset_x += 10;
+		 break;
+	 case 'w':
+		 offset_y += 10;
+		 break;
+	 case 's':
+		 offset_y -= 10;
+		 break;
+	 }
+ }
 
 		mGUI.join();
 		

@@ -13,8 +13,8 @@
 #include <opencv2/highgui.hpp>
 
 
-static int width  = 1920; ///2; //800;
-static int height = 1080;//1200; ///2;// 00;
+static int width = 1920 / 1; ///2; //800;
+static int height = 1200 / 1;//1200; ///2;// 00;
 
 
 
@@ -40,7 +40,7 @@ int saturate(int val, int min, int max);
 
 
 cv::Mat print(uint8_t * array, int zoom, int offset_x, int offset_y);
-void Seed(uint8_t * game, bool overwrite, bool drawpanets, int dist);
+void Seed(uint8_t * game, bool overwrite, bool drawpanets, bool drawimage, bool drawcross, int dist);
 void SeedImage(std::string filename, uint8_t * game, bool overwrite);
 
 #endif
